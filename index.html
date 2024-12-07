@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pacheesi 3D</title>
+
+  <style>
+    body {
+   margin: 0;
+   display: flex;
+   height: 100vh;
+ }
+ 
+ #game-area {
+ 
+   position: relative;
+ }
+ 
+ #side-panel {
+  position: absolute;
+  top: 10px;
+  right: 0;
+  background-color: rgba(255, 255, 255, 0.2); 
+  border-radius: 10%; 
+  padding: 2%;
+  text-align: center;
+  z-index: 100;
+  display: block;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); 
+  
+  backdrop-filter: blur(10px); 
+  -webkit-backdrop-filter: blur(10px); 
+  
+  border: 1px solid rgba(255, 255, 255, 0.3); 
+  
+}
+
+ #rollButton {
+ background-color: #0cc7be; 
+ border: none;
+ color: white;
+ border-radius: 10%;
+ padding: 7% 15%;
+ text-align: center;
+ text-decoration: none;
+ display: inline-block;
+ font-size: 1rem;
+ cursor:pointer;
+ }
+ 
+     .score {
+       margin-bottom: 20px;
+       font-size: 1em;
+     }
+ 
+     .dice {
+  width: 3rem;
+  height: 3rem;
+  margin: 5px;
+  padding: 5px;
+  cursor: pointer;
+  transition: transform 0.3s ease; 
+}
+
+.dice.selected {
+  border: 3px solid rgb(245, 245, 159); 
+}
+     
+
+.modal {
+      display: none; 
+      position: fixed;
+      z-index: 1000; 
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6); 
+      overflow: auto;
+    }
+
+    .modal-content {
+      background-color: white;
+      margin: 15% auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 50%;
+      max-width: 600px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+
+    .modal-content h2 {
+      margin-top: 0;
+      color: #0cc7be;
+    }
+
+    .modal-content p {
+      font-size: 1.2em;
+      line-height: 1.5;
+    }
+
+    .modal-content button {
+      background-color: #0cc7be;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1.2em;
+      cursor: pointer;
+      border-radius: 5px;
+      margin-top: 15px;
+    }
+
+    .modal-content button:hover {
+      background-color: #0b9e96;
+    }
+
+
+    .blurred {
+      filter: blur(5px);
+      pointer-events: none; 
+    }
+
+ 
+   </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.module.js",
+        "GLTFLoader": "https://cdn.jsdelivr.net/npm/three@0.152.0/examples/jsm/loaders/GLTFLoader.js",
+        "OrbitControls": "https://cdn.jsdelivr.net/npm/three@0.152.0/examples/jsm/controls/OrbitControls.js"
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+</head>
+<body>
+    
+  <div id="side-panel">
+    <div class="score" id="redScore">Red: 0</div>
+    <div class="score" id="greenScore">Green: 0</div>
+    <div class="score" id="yellowScore">Yellow: 0</div>
+    <div class="score" id="blueScore">Blue: 0</div>
+    
+    <div>
+      <img id="dice1" src="assets/dice/d3.png" alt="Dice 1" class="dice">
+      <span id="dice1Order"></span>
+      <img id="dice2" src="assets/dice/d1.png" alt="Dice 2" class="dice">
+      <span id="dice2Order"></span>
+    </div>
+
+    <button id="rollButton" >Roll Dice</button>
+    <h3 id="turnIndicator">Dice Roll</h3>
+  </div>
+<div id="game-area"></div>
+<div id="gameRulesModal" class="modal">
+  <div class="modal-content">
+    <h2>Welcome to Pacheesi 3D</h2>
+    <p><strong>Rules of the Game:</strong> 🎲</p>
+    <ul style="text-align: left;">
+      <li>To roll the dice, click the <strong>“Roll Dice”</strong> button. 🎲</li>
+      <li>A pawn can leave the home only if the sum of both dice equals 5 or any individual 
+        die equals 5. 🏠➕5️⃣</li>
+      <li>If dice sum = 5 <b>No need to select</b> dice to move out of home</li> 
+      <li><b>Select a die</b> and then click a pawn to move according to the selected die’s value. 🎲➡️♟️</li>
+      <li>If your pawn captures another player’s pawn, you get a bonus roll! 🎉♟️</li>
+      <li>You can view and move the board as you wish. 👀🗺️</li>
+    </ul> <p><strong>About the Project:</strong>
+    <br>This is a 3D Pacheesi game developed using Three.js. Enjoy your game! 🎮✨</p>
+    <button id="closeModal">Start Game</button>
+  </div>
+</div>
+  <script type="module">
+
+window.onload = function() {
+      // Get the modal and game area
+      const modal = document.getElementById('gameRulesModal');
+      const gameArea = document.getElementById('game-area');
+      const closeModalBtn = document.getElementById('closeModal');
+
+      // Display the modal when the game starts
+      modal.style.display = 'block';
+      gameArea.classList.add('blurred');
+
+      // Close the modal and remove blur when 'Start Game' button is clicked
+      closeModalBtn.addEventListener('click', function() {
+        modal.style.display = 'none'; // Hide the modal
+        gameArea.classList.remove('blurred'); // Remove the blur
+      });
+    };
+
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'GLTFLoader';
+    import { OrbitControls } from 'OrbitControls';
+    let pawnsArray = []; 
+    let redscore = 0,greenscore=0,yellowscore =0,bluescore =0;
+    let scene, camera, renderer, controls;
+    let currentPlayer = 0;
+    let diceSum = 0;
+    let dice2 =0;
+    let dice1 = 0;
+    let dice1Used = false, dice2Used = false;
+    let selectedDiceValue = null;
+    let selectedDiceElement = null;
+    let diceSelectionOrder = [];
+    let equal_dice = false;
+    let bonusTurn = false;
+    let destReachBonus = false;
+    const raycaster = new THREE.Raycaster();
+raycaster.params.Points.threshold = 0.1; // Adjust the threshold as needed
+
+      let mouse = new THREE.Vector2();
+
+
+
+
+      
+
+    const playerNames = ["Red", "Green", "Yellow", "Blue"];
+
+    const startingPositions = {
+      Red: new THREE.Vector3(-2, 5.5, 12),
+      Green: new THREE.Vector3(12, 5.5, 2),
+      Yellow: new THREE.Vector3(2, 5.5, -12),
+      Blue: new THREE.Vector3(-12, 5.5, -2)
+    };
+
+    const pawns = {
+      Red: {
+        home: [
+          { index: 1, position: new THREE.Vector3(-11, 5.5, 9), model: null },
+          { index: 2, position: new THREE.Vector3(-6, 5.5, 9), model: null },
+          { index: 3, position: new THREE.Vector3(-8.5, 5.5, 6.5), model: null },
+          { index: 4, position: new THREE.Vector3(-8.5, 5.5, 11), model: null }
+        ],
+        currentPos: [null, null, null, null]
+      },
+      Green: {
+        home: [
+          { index: 1, position: new THREE.Vector3(11, 5.5,9), model: null },
+          { index: 2, position: new THREE.Vector3(6, 5.5, 9), model: null },
+          { index: 3, position: new THREE.Vector3(8.5, 5.5, 6.5), model: null },
+          { index: 4, position: new THREE.Vector3(8.5, 5.5, 11), model: null }
+        ],
+        currentPos: [null, null, null, null]
+      },
+      Yellow: {
+        home: [
+          { index: 1, position: new THREE.Vector3(11, 5.5,-9), model: null },
+          { index: 2, position: new THREE.Vector3(6, 5.5, -9), model: null },
+          { index: 3, position: new THREE.Vector3(8.5, 5.5, -6.5), model: null },
+          { index: 4, position: new THREE.Vector3(8.5, 5.5, -11), model: null }
+        ],
+        currentPos: [null, null, null, null]
+      },
+      Blue: {
+        home: [
+          { index: 1, position: new THREE.Vector3(-11, 5.5,-9), model: null },
+          { index: 2, position: new THREE.Vector3(-6, 5.5, -9), model: null },
+          { index: 3, position: new THREE.Vector3(-8.5, 5.5, -6.5), model: null },
+          { index: 4, position: new THREE.Vector3(-8.5, 5.5, -11), model: null }
+        ],
+        currentPos: [null, null, null, null]
+      }
+    };
+
+    function init() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xF0F8FF);
+      // renderer.domElement.style.background = 'linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)';
+      
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 20, 30);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const canvas = renderer.domElement;
+
+
+function sendMouseDataToFile(mouseData) {
+  fetch('/log-mouse-event', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(mouseData)
+  })
+  .then(response => {
+    if (response.ok) {
+      console.log('Mouse event logged successfully');
+    }
+  })
+  .catch(error => {
+    console.error('Error logging mouse event:', error);
+  });
+}
+
+
+function logMouseEvent(event) {
+  const mouseData = {
+    type: event.type,
+    x: event.clientX,
+    y: event.clientY,
+    time: new Date().toISOString()
+  };
+  console.log(mouseData); 
+  sendMouseDataToFile(mouseData); 
+}
+
+
+canvas.addEventListener('click', logMouseEvent);
+// canvas.addEventListener('mousemove', logMouseEvent);
+canvas.addEventListener('mousedown', logMouseEvent);
+canvas.addEventListener('mouseup', logMouseEvent);
+
+
+
+
+
+
+document.getElementById('game-area').appendChild(renderer.domElement);
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(10, 10, 10);
+      scene.add(directionalLight);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.screenSpacePanning = false;
+      controls.maxPolarAngle = Math.PI / 2;
+
+      const loader = new GLTFLoader();
+      loader.load('/board/source/l.glb', function (gltf) {
+        const ludoBoard = gltf.scene;
+        ludoBoard.scale.set(100, 100, 30); 
+        ludoBoard.rotation.x = -Math.PI / 2;
+        ludoBoard.position.set(-1.5, 0, -2);
+        scene.add(ludoBoard);
+      }, undefined, function (error) {
+        console.error(error);
+      });
+
+      
+      for (let color of playerNames) {
+        for (let i = 1; i <= 4; i++) {
+          addPawnWithClickEvent(color, i);
+        }
+      }
+
+      window.addEventListener('resize', () => {
+  const gameArea = document.getElementById('game-area');
+  
+  
+  renderer.setSize(gameArea.clientWidth, gameArea.clientHeight);
+
+  
+  camera.aspect = gameArea.clientWidth / gameArea.clientHeight;
+  camera.updateProjectionMatrix();
+});
+
+// document.addEventListener('mousedown', onMouseClick,false);
+
+      animate();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function rollDice() {
+        dice1 = Math.floor(Math.random() * 6) + 1;
+        dice2 = Math.floor(Math.random() * 6) + 1;
+        document.getElementById('dice1').src = `assets/dice/d${dice1}.png`;
+        document.getElementById('dice2').src = `assets/dice/d${dice2}.png`;
+        diceSum = dice1 + dice2; // Sum of both dice
+        diceSelectionOrder = [];
+          dice1Used = false;
+          dice2Used = false;
+          selectedDiceValue = null;
+          updateDiceSelectionOrder();
+        return diceSum;
+    }
+function updateDiceSelectionOrder() {
+      const [first, second] = diceSelectionOrder;
+      document.getElementById('dice1Order').innerText = first === 1 ? '1' : second === 1 ? '2' : '';
+      document.getElementById('dice2Order').innerText = first === 2 ? '1' : second === 2 ? '2' : '';
+    }
+    document.getElementById('dice1').addEventListener('click', () => {
+  if (!dice1Used && !diceSelectionOrder.includes(1)) {
+    diceSelectionOrder.push(1);
+    updateDiceSelectionOrder();
+    selectedDiceValue = dice1; // Set the selected dice value
+    document.getElementById('dice1').classList.add('selected');
+  }
+});
+document.getElementById('dice2').addEventListener('click', () => {
+  if (!dice2Used && !diceSelectionOrder.includes(2)) {
+    diceSelectionOrder.push(2);
+    updateDiceSelectionOrder();
+    document.getElementById('dice2').classList.add('selected');
+    selectedDiceValue = dice2; // Set the selected dice value
+  }
+});
+
+
+function moveNext(color, index, stepsToMove) {
+    
+    const redPath = [
+        new THREE.Vector3(-2, 5.5, 12), new THREE.Vector3(-2, 5.5, 10), new THREE.Vector3(-2, 5.5, 8),
+        new THREE.Vector3(-2, 5.5, 6), new THREE.Vector3(-2, 5.5, 4), new THREE.Vector3(-4, 5.5, 2),
+        new THREE.Vector3(-6, 5.5, 2), new THREE.Vector3(-8, 5.5, 2), new THREE.Vector3(-10, 5.5, 2),
+        new THREE.Vector3(-12, 5.5, 2), new THREE.Vector3(-14, 5.5, 2), new THREE.Vector3(-14, 5.5, 0),
+        new THREE.Vector3(-14, 5.5, -2), new THREE.Vector3(-12, 5.5, -2), new THREE.Vector3(-10, 5.5, -2),
+        new THREE.Vector3(-8, 5.5, -2), new THREE.Vector3(-6, 5.5, -2), new THREE.Vector3(-4, 5.5, -2),
+        new THREE.Vector3(-2, 5.5, -4), new THREE.Vector3(-2, 5.5, -6), new THREE.Vector3(-2, 5.5, -8),
+        new THREE.Vector3(-2, 5.5, -10), new THREE.Vector3(-2, 5.5, -12), new THREE.Vector3(-2, 5.5, -14),
+        new THREE.Vector3(0, 5.5, -14), new THREE.Vector3(2, 5.5, -14),
+        new THREE.Vector3(2, 5.5, -12), new THREE.Vector3(2, 5.5, -10), new THREE.Vector3(2, 5.5, -8),
+        new THREE.Vector3(2, 5.5, -6), new THREE.Vector3(2, 5.5, -4), new THREE.Vector3(4, 5.5, -2),
+        new THREE.Vector3(6, 5.5, -2), new THREE.Vector3(8, 5.5, -2), new THREE.Vector3(10, 5.5, -2),
+        new THREE.Vector3(12, 5.5, -2), new THREE.Vector3(14, 5.5, -2), new THREE.Vector3(14, 5.5, 0),
+        new THREE.Vector3(14, 5.5, 2), new THREE.Vector3(12, 5.5, 2), new THREE.Vector3(10, 5.5, 2),
+        new THREE.Vector3(8, 5.5, 2), new THREE.Vector3(6, 5.5, 2), new THREE.Vector3(4, 5.5, 2),
+        new THREE.Vector3(2, 5.5, 4), new THREE.Vector3(2, 5.5, 6),
+        new THREE.Vector3(2, 5.5, 8), new THREE.Vector3(2, 5.5, 10), new THREE.Vector3(2, 5.5, 12),
+        new THREE.Vector3(2, 5.5, 14), new THREE.Vector3(0, 5.5, 14), new THREE.Vector3(0, 5.5, 12),
+        new THREE.Vector3(0, 5.5, 10), new THREE.Vector3(0, 5.5, 8), new THREE.Vector3(0, 5.5, 6),
+        new THREE.Vector3(0, 5.5, 4), new THREE.Vector3(0, 5.5, 2), // Destination
+    ];
+
+    const greenPath = [
+    new THREE.Vector3(12, 5.5, 2), new THREE.Vector3(10, 5.5, 2), new THREE.Vector3(8, 5.5, 2),
+    new THREE.Vector3(6, 5.5, 2), new THREE.Vector3(4, 5.5, 2), new THREE.Vector3(2, 5.5, 4),
+    new THREE.Vector3(2, 5.5, 6), new THREE.Vector3(2, 5.5, 8), new THREE.Vector3(2, 5.5, 10),
+    new THREE.Vector3(2, 5.5, 12), new THREE.Vector3(2, 5.5, 14), new THREE.Vector3(0, 5.5, 14),
+    new THREE.Vector3(-2, 5.5, 14), new THREE.Vector3(-2, 5.5, 12),new THREE.Vector3(-2, 5.5, 8),
+    new THREE.Vector3(-2, 5.5, 6),new THREE.Vector3(-2, 5.5, 4),new THREE.Vector3(-4, 5.5, 2),
+    new THREE.Vector3(-4, 5.5, 2),new THREE.Vector3(-6, 5.5, 2),new THREE.Vector3(-8, 5.5, 2),
+    new THREE.Vector3(-10, 5.5, 2), new THREE.Vector3(-12, 5.5, 2), new THREE.Vector3(-14, 5.5, 2),
+    new THREE.Vector3(-14, 5.5, 0), new THREE.Vector3(-14, 5.5, -2),
+    new THREE.Vector3(-12, 5.5, -2), new THREE.Vector3(-10, 5.5, -2), new THREE.Vector3(-8, 5.5, -2),
+    new THREE.Vector3(-6, 5.5, -2), new THREE.Vector3(-4, 5.5, -2), new THREE.Vector3(-2, 5.5, -4),
+    new THREE.Vector3(-2, 5.5, -6), new THREE.Vector3(-2, 5.5, -8), new THREE.Vector3(-2, 5.5, -10),
+    new THREE.Vector3(-2, 5.5, -12), new THREE.Vector3(-2, 5.5, -14), new THREE.Vector3(0, 5.5, -14),
+    new THREE.Vector3(2, 5.5, -14), new THREE.Vector3(2, 5.5, -12), new THREE.Vector3(2, 5.5, -10),
+    new THREE.Vector3(2, 5.5, -8), new THREE.Vector3(2, 5.5, -6), new THREE.Vector3(2, 5.5, -4),
+    new THREE.Vector3(4, 5.5, -2), new THREE.Vector3(6, 5.5, -2), new THREE.Vector3(8, 5.5, -2),
+    new THREE.Vector3(10, 5.5, -2), new THREE.Vector3(12, 5.5, -2), new THREE.Vector3(14, 5.5, -2),
+    new THREE.Vector3(14, 5.5, 0), new THREE.Vector3(12, 5.5, 0),
+    new THREE.Vector3(10, 5.5, 0), new THREE.Vector3(8, 5.5, 0), new THREE.Vector3(6, 5.5, 0),
+    new THREE.Vector3(4, 5.5, 0), new THREE.Vector3(2, 5.5, 0) // Destination
+];
+const yellowPath = [
+    new THREE.Vector3(2, 5.5, -12), new THREE.Vector3(2, 5.5, -10), new THREE.Vector3(2, 5.5, -8),
+    new THREE.Vector3(2, 5.5, -6), new THREE.Vector3(2, 5.5, -4), new THREE.Vector3(4, 5.5, -2),
+    new THREE.Vector3(6, 5.5, -2), new THREE.Vector3(8, 5.5, -2), new THREE.Vector3(10, 5.5, -2),
+    new THREE.Vector3(12, 5.5, -2), new THREE.Vector3(14, 5.5, -2), new THREE.Vector3(14, 5.5, 0),
+        new THREE.Vector3(14, 5.5, 2), new THREE.Vector3(12, 5.5, 2), new THREE.Vector3(10, 5.5, 2),
+        new THREE.Vector3(8, 5.5, 2), new THREE.Vector3(6, 5.5, 2), new THREE.Vector3(4, 5.5, 2),
+        new THREE.Vector3(2, 5.5, 4), new THREE.Vector3(2, 5.5, 6),
+        new THREE.Vector3(2, 5.5, 8), new THREE.Vector3(2, 5.5, 10), new THREE.Vector3(2, 5.5, 12),
+        new THREE.Vector3(2, 5.5, 14), new THREE.Vector3(0, 5.5, 14),
+     new THREE.Vector3(-2, 5.5, 14),
+    new THREE.Vector3(-2, 5.5, 12), new THREE.Vector3(-2, 5.5, 10), new THREE.Vector3(-2, 5.5, 8),
+    new THREE.Vector3(-2, 5.5, 6), new THREE.Vector3(-2, 5.5, 4), new THREE.Vector3(-4, 5.5, 2),
+    new THREE.Vector3(-6, 5.5, 2), new THREE.Vector3(-8, 5.5, 2), new THREE.Vector3(-10, 5.5, 2),
+    new THREE.Vector3(-12, 5.5, 2), new THREE.Vector3(-14, 5.5, 2), new THREE.Vector3(-14, 5.5, 0),
+   new THREE.Vector3(-14, 5.5, -2), new THREE.Vector3(-12, 5.5, -2),
+    new THREE.Vector3(-10, 5.5, -2), new THREE.Vector3(-8, 5.5, -2), new THREE.Vector3(-6, 5.5, -2),
+    new THREE.Vector3(-4, 5.5, -2), new THREE.Vector3(-2, 5.5, -4), new THREE.Vector3(-2, 5.5, -6),
+    new THREE.Vector3(-2, 5.5, -8), new THREE.Vector3(-2, 5.5, -10), new THREE.Vector3(-2, 5.5, -12),
+    new THREE.Vector3(-2, 5.5, -14), new THREE.Vector3(0, 5.5, -14), new THREE.Vector3(0, 5.5, -12),
+    new THREE.Vector3(0, 5.5, -10), new THREE.Vector3(0, 5.5, -8), new THREE.Vector3(0, 5.5, -6),
+    new THREE.Vector3(0, 5.5, -4), new THREE.Vector3(0, 5.5, -2) // Destination
+];
+
+const bluePath = [
+    new THREE.Vector3(-12, 5.5, -2), new THREE.Vector3(-10, 5.5, -2), new THREE.Vector3(-8, 5.5, -2),
+    new THREE.Vector3(-6, 5.5, -2), new THREE.Vector3(-4, 5.5, -2), new THREE.Vector3(-2, 5.5, -4),
+    new THREE.Vector3(-2, 5.5, -6), new THREE.Vector3(-2, 5.5, -8), new THREE.Vector3(-2, 5.5, -10),
+    new THREE.Vector3(-2, 5.5, -12), new THREE.Vector3(-2, 5.5, -14), new THREE.Vector3(0, 5.5, -14),
+    new THREE.Vector3(2, 5.5, -14), new THREE.Vector3(2, 5.5, -12), new THREE.Vector3(2, 5.5, -10),
+    new THREE.Vector3(2, 5.5, -8), new THREE.Vector3(2, 5.5, -6), new THREE.Vector3(2, 5.5, -4),
+    new THREE.Vector3(4, 5.5, -2), new THREE.Vector3(6, 5.5, -2), new THREE.Vector3(8, 5.5, -2),
+    new THREE.Vector3(10, 5.5, -2), new THREE.Vector3(12, 5.5, -2), new THREE.Vector3(14, 5.5, -2),
+    new THREE.Vector3(14, 5.5, 0), new THREE.Vector3(14, 5.5, 2),
+    new THREE.Vector3(12, 5.5, 2), new THREE.Vector3(10, 5.5, 2), new THREE.Vector3(8, 5.5, 2),
+    new THREE.Vector3(6, 5.5, 2), new THREE.Vector3(4, 5.5, 2), new THREE.Vector3(2, 5.5, 4),
+    new THREE.Vector3(2, 5.5, 6), new THREE.Vector3(2, 5.5, 8), new THREE.Vector3(2, 5.5, 10),
+    new THREE.Vector3(2, 5.5, 12), new THREE.Vector3(2, 5.5, 14), new THREE.Vector3(0, 5.5, 14),
+    new THREE.Vector3(-2, 5.5, 14), new THREE.Vector3(-2, 5.5, 12), new THREE.Vector3(-2, 5.5, 10),
+    new THREE.Vector3(-2, 5.5, 8), new THREE.Vector3(-2, 5.5, 6), new THREE.Vector3(-2, 5.5, 4),
+    new THREE.Vector3(-4, 5.5, 2), new THREE.Vector3(-6, 5.5, 2), new THREE.Vector3(-8, 5.5, 2),
+    new THREE.Vector3(-10, 5.5, 2), new THREE.Vector3(-12, 5.5, 2), new THREE.Vector3(-14, 5.5, 2),
+    new THREE.Vector3(-14, 5.5, 0), new THREE.Vector3(-12, 5.5, 0),
+    new THREE.Vector3(-10, 5.5, 0), new THREE.Vector3(-8, 5.5, 0), new THREE.Vector3(-6, 5.5, 0),
+    new THREE.Vector3(-4, 5.5, 0), new THREE.Vector3(-2, 5.5, 0) // Destination
+];
+
+    
+    let path;
+    if (color === 'Red') {
+        path = redPath;
+    } else if (color === 'Green') {
+        path = greenPath;
+    } else if (color === 'Yellow') {
+        path = yellowPath;
+    } else if (color === 'Blue') {
+        path = bluePath;
+    } 
+
+    const pawn = pawns[color].home[index - 1]; // Get the pawn object
+    const currentPos = pawns[color].currentPos[index - 1]; // Get the pawn's current position
+
+    if (!currentPos) {
+        console.error(`Pawn ${color} ${index} has not started moving yet.`);
+        return;
+    }
+
+    // Find the current index in the path
+    let currentIndex = path.findIndex((pos) => pos.equals(currentPos));
+    if (currentIndex === -1) {
+        console.error(`Invalid current position for ${color} pawn ${index}`);
+        return;
+    }
+
+    
+    let nextIndex = currentIndex + stepsToMove;
+    if (nextIndex > path.length) {
+        //nextIndex = path.length - 1; 
+        console.log(`${color} pawn ${index} cant move this many steps`);
+    }
+
+    // Move the pawn to the new position
+    const nextPosition = path[nextIndex];
+    if (isPositionOccupied(nextPosition, color)) {
+        console.log(`${color} pawn ${index} can't move to an occupied position.`);
+        Swal.fire(`${color} pawn ${index} can't move because the target position is occupied!`);
+        return;
+    }
+
+    pawn.model.position.copy(nextPosition);
+    pawns[color].currentPos[index - 1] = nextPosition; // Update the pawn's current position
+
+    checkForCollision(nextPosition, color, index);
+
+    console.log(`${color} pawn ${index} moved to new position:`, nextPosition);
+    
+    // If the pawn has reached the final position, stop further movement
+    if (nextIndex === path.length - 1) {
+      
+      
+      if (color === 'Red') {
+                redscore++;
+                document.getElementById('redScore').innerHTML = `Red: ${redscore}`;
+                
+                if(redscore==4){
+                  Swal.fire({
+                    title: 'Congratulations!',
+                    text: 'To Red',
+                    icon: 'success',
+                    confirmButtonText: 'Awesome!'
+                  });
+                  document.getElementById('redScore').style.color = 'red';
+                } else{
+                  Swal.fire("Destination reaching Bonus 10 moves to RED");
+                  destReachBonus = true;
+                }
+            } else if (color === 'Green') {
+                greenscore++;
+                document.getElementById('greenScore').innerHTML = `Green: ${greenscore}`;
+                if(greenscore==4){
+                  Swal.fire({
+                    title: 'Congratulations!',
+                    text: 'To Green',
+                    icon: 'success',
+                    confirmButtonText: 'Awesome!'
+                  });
+                  document.getElementById('GreenScore').style.color = 'green';
+                }else{
+                  Swal.fire("Destination reaching Bonus 10 moves to GREEN");
+                  destReachBonus = true;
+                }
+            } else if (color === 'Yellow') {
+                yellowscore++;
+                document.getElementById('yellowScore').innerHTML = `Yellow: ${yellowscore}`;
+                if(yellowscore==4){
+                  Swal.fire({
+                    title: 'Congratulations!',
+                    text: 'To Yellow',
+                    icon: 'success',
+                    confirmButtonText: 'Awesome!'
+                  });
+                  document.getElementById('yellowScore').style.color = 'yellow';
+                }else{
+                  Swal.fire("Destination reaching Bonus 10 moves to YELLOW");
+                  destReachBonus = true;
+                }
+            } else if (color === 'Blue') {
+                bluescore++;
+                document.getElementById('blueScore').innerHTML = `Blue: ${bluescore}`;
+                if(bluescore==4){
+                  Swal.fire({
+                    title: 'Congratulations!',
+                    text: 'To Blue',
+                    icon: 'success',
+                    confirmButtonText: 'Awesome!'
+                  });
+                  document.getElementById('blueScore').style.color = 'blue';
+                }else{
+                  Swal.fire("Destination reaching Bonus 10 moves to BLUE");
+                  destReachBonus = true;
+                }
+            }
+        console.log(`${color} pawn ${index} has reached the destination and can no longer move.`);
+    }
+}
+
+function isPositionOccupied(targetPosition, movingColor) {
+    let occupied = false;
+
+    Object.keys(pawns).forEach(color => {
+        if (color !== movingColor) {  // Don't check pawns of the same color
+            pawns[color].currentPos.forEach(pos => {
+                if (pos && pos.equals(targetPosition)) {
+                  const isHomePosition = Object.keys(startingPositions).some(homeColor => {
+                        return startingPositions[homeColor].equals(targetPosition);
+                    });
+
+                    // If the target is a home position and occupied by another pawn, it's considered occupied
+                    if (isHomePosition) {
+                        occupied = true;
+                    }  // Position is occupied by a different pawn
+                }
+            });
+        }
+    });
+
+    return occupied;
+}
+
+
+function checkForCollision(nextPos, movingColor, movingIndex) {
+      Object.keys(pawns).forEach(color => {
+        if (color !== movingColor) {
+          pawns[color].currentPos.forEach((pos, index) => {
+            if (pos && pos.equals(nextPos) && !bonusTurn) {
+              Swal.fire(`${movingColor} captured ${color}'s pawn!`);
+              sendPawnHome(color, index);
+              currentPlayer-=1
+              bonusTurn = true;  // Award bonus roll
+            }
+          });
+        }
+      });
+    }
+
+    function sendPawnHome(color, index) {
+      const pawn = pawns[color].home[index];
+      pawn.model.position.copy(pawn.position);
+      pawns[color].currentPos[index] = null;
+    }
+
+function movePawnToStart(color, index) {
+    const pawn = pawns[color].home[index - 1];
+
+    // Check if the pawn is still at home and dice sum is 5 or any dice is 5
+    if (pawns[color].currentPos[index - 1] === null && (diceSum == 5)){
+      const startPosition = startingPositions[color];
+        pawn.model.position.copy(startPosition); // Move pawn to the start position
+        pawns[color].currentPos[index - 1] = startPosition; // Mark the pawn as started
+        console.log(`${color} pawn ${index} moved to start position:`, startPosition);
+        checkForCollision(startPosition,color,index-1);
+        diceSum =0;
+    }else if (pawns[color].currentPos[index - 1] === null && ( dice1 == 5)) {
+            if (selectedDiceValue === dice1 && !dice1Used) {
+                // diceSum =0 ;
+                const startPosition = startingPositions[color];
+        pawn.model.position.copy(startPosition); // Move pawn to the start position
+        pawns[color].currentPos[index - 1] = startPosition; // Mark the pawn as started
+        console.log(`${color} pawn ${index} moved to start position:`, startPosition);
+        checkForCollision(startPosition,color,index-1);
+        diceSum =diceSum - dice1;
+                
+            dice1Used = true; // Mark dice1 as used
+          } 
+        selectedDiceValue = null;
+
+    }else
+    if (pawns[color].currentPos[index - 1] === null && ( dice2 == 5)) {
+      if (selectedDiceValue === dice2) {
+                // diceSum =0 ;
+                const startPosition = startingPositions[color];
+        pawn.model.position.copy(startPosition); // Move pawn to the start position
+        pawns[color].currentPos[index - 1] = startPosition; // Mark the pawn as started
+        console.log(`${color} pawn ${index} moved to start position:`, startPosition);
+        checkForCollision(startPosition,color,index-1);
+        diceSum =diceSum - dice2;
+                
+            dice2Used = true; 
+          } 
+        
+    } else if (pawns[color].currentPos[index - 1] !== null && diceSum > 0) {
+        // If the pawn is already on the board, move it forward based on the remaining dice value
+        
+
+        
+        if (selectedDiceValue === dice1 && !dice1Used) {
+          // diceSum =0 ;
+          moveNext(color, index,dice1);
+          diceSum = diceSum - dice1;
+      dice1Used = true; // Mark dice1 as used
+    } else if (selectedDiceValue === dice2 &&!dice2Used) {
+      dice2Used = true; // Mark dice2 as used
+      // diceSum =0 ;
+      diceSum = diceSum - dice2;
+      moveNext(color, index,dice2);
+    }
+    selectedDiceValue = null;
+        // moveNext(color, index, diceSum);// Reset the dice sum after moving the pawn
+    }else if(destReachBonus){
+      moveNext(color,index,10);
+      destReachBonus = false;
+    }
+}
+
+
+
+ function addPawnWithClickEvent(color, index) {
+  const loader = new GLTFLoader();
+  const pawn = pawns[color].home[index - 1];
+
+  loader.load(`assets/${color.toLowerCase()}${index}.glb`, (gltf) => {
+    const pawnModel = gltf.scene;
+    pawnModel.scale.set(0.5, 0.5, 0.5);
+    pawnModel.position.copy(pawn.position);
+    pawn.model = pawnModel;
+    scene.add(pawnModel);
+
+    // Traverse the entire model and assign userData to each Mesh
+    pawnModel.traverse((child) => {
+      if (child.isMesh) {
+        child.userData = { color: color, index: index };
+      }
+    });
+
+    // Add the whole model to the clickable array
+    pawnsArray.push(pawnModel);
+
+    console.log(`${color} pawn ${index} added to the scene with userData:`, { color: color, index: index });
+  });
+}
+
+
+
+// Mouse click handler
+function onMouseClick(event) {
+    event.preventDefault();
+
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Update the raycaster with the camera and mouse position
+    raycaster.setFromCamera(mouse, camera);
+
+    // Intersect objects with the pawnsArray (array of clickable objects)
+    const intersects = raycaster.intersectObjects(pawnsArray, true);
+
+    if (intersects.length > 0) {
+        const selectedPawn = intersects[0].object;
+
+        // Ensure that the selected object has userData
+        if (selectedPawn.userData && selectedPawn.userData.color && selectedPawn.userData.index && diceSum>0) {
+            console.log("Pawn clicked:", selectedPawn.userData);
+
+            // Move the pawn based on dice value, if conditions are met
+            movePawnToStart(selectedPawn.userData.color, selectedPawn.userData.index);
+        } else {
+            console.error('Pawn does not have userData assigned:', selectedPawn);
+        }
+    }
+}
+
+
+
+document.getElementById('rollButton').addEventListener('click', () => {
+    let sum = rollDice(); // Get the sum of both dice
+    // equal_dice = false;
+    if(dice1 == dice2) equal_dice = true;
+    document.getElementById('turnIndicator').innerText = `${playerNames[currentPlayer]}'s Turn`;
+    // Check if the sum is 5 or if any individual dice rolled a 5
+    // Allow the player to click a pawn and move it to the start position
+        document.addEventListener('mousedown', onMouseClick);
+    
+    document.getElementById('dice1').style.backgroundColor = `${playerNames[currentPlayer]}`;
+    document.getElementById('dice2').style.backgroundColor = `${playerNames[currentPlayer]}`;
+    if(diceSum==5){
+      document.getElementById('turnIndicator').innerText = `${playerNames[currentPlayer]}'s Turn DiceSum = 5`;
+    }else{
+      document.getElementById('turnIndicator').innerText = `${playerNames[currentPlayer]}'s Turn`;
+    }
+
+    if(equal_dice) {
+      equal_dice = false;
+    }else{
+      currentPlayer = (currentPlayer + 1) % playerNames.length;
+    }
+     // Cycle through players
+    document.getElementById('dice1').classList.remove('selected');
+    document.getElementById('dice2').classList.remove('selected');
+   
+});
+
+
+
+    // Initialize the scene
+    init();
+  </script>
+</body>
+</html>
